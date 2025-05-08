@@ -13,7 +13,7 @@ app.get('/', (_req: Request, res: Response) => {
     res.send({ message: 'Hello from Express + TypeScript!' });
 });
 
-app.get('/user-avatar', (req: any, res: any) => {
+app.get('/user-avatar', (req: Request, res: Response) => {
     const name = req.query.name as string;
     const bgColorInput = req.query.backgroundColor as string;
 

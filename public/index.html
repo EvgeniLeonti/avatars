@@ -48,33 +48,96 @@
             /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
             const [imageUrl, setImageUrl] = React.useState('');
             /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
+            const [requestUrl, setRequestUrl] = React.useState('');
+            /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
             const [error, setError] = React.useState('');
+            
+            const previousObjectUrlRef = React.useRef(null);
 
             // Assuming server runs on localhost:3000 based on assignment and server fallback.
             // Your server's DEFAULT_PORT is taken from process.env.PORT or defaults to 3000.
             // const SERVER_BASE_URL = 'http://localhost:3000'; // Removed
 
-            const generateAndSetImageUrl = React.useCallback(debounce((currentName, currentBgColor) => {
+            const generateAndSetImageUrl = React.useCallback(debounce(async (currentName, currentBgColor) => {
+                if (previousObjectUrlRef.current) {
+                    URL.revokeObjectURL(previousObjectUrlRef.current);
+                    previousObjectUrlRef.current = null;
+                }
+                setImageUrl(''); // Clear previous image immediately
+
                 if (!currentName.trim()) {
-                    setImageUrl('');
                     setError('Name is a mandatory parameter.');
+                    setRequestUrl('');
                     return;
                 }
-                setError('');
+                
                 const params = new URLSearchParams();
                 params.append('name', currentName.trim());
                 
-                // Server handles #, but let's be clean and send without it.
                 const cleanBgColor = currentBgColor.replace('#', '');
                 if (cleanBgColor) {
                     params.append('backgroundColor', cleanBgColor);
                 }
                 
-                setImageUrl(`/user-avatar?${params.toString()}`); // Changed to relative path
-            }, 300), []); // Removed SERVER_BASE_URL from dependencies
+                const generatedRequestUrl = `/user-avatar?${params.toString()}`;
+                setRequestUrl(generatedRequestUrl);
+
+                try {
+                    const response = await fetch(generatedRequestUrl);
+                    if (!response.ok) {
+                        let errorMsg = `Server error: ${response.status} ${response.statusText || ''}`;
+                        try {
+                            const errorData = await response.json();
+                            // Check for the specific error structure provided
+                            if (errorData && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+                                errorMsg += ` - ${errorData.errors[0].msg}`;
+                                if (errorData.errors[0].path) {
+                                   errorMsg += ` (Parameter: ${errorData.errors[0].path})`;
+                                }
+                            } else if (errorData && errorData.message) { // Fallback for other JSON errors
+                                errorMsg += ` - ${errorData.message}`;
+                            } else if (errorData && errorData.error) { // Another fallback
+                                 errorMsg += ` - ${errorData.error}`;
+                            }
+                        } catch (e) {
+                            // Not a JSON error response, or failed to parse. Try to get text.
+                            const textError = await response.text();
+                            if (textError) {
+                                errorMsg += ` - ${textError.substring(0, 100)}`; // Limit length of non-JSON error text
+                            }
+                        }
+                        setError(errorMsg.trim());
+                        setImageUrl('');
+                        return;
+                    }
+
+                    const blob = await response.blob();
+                    if (blob.type && !blob.type.startsWith('image/')) {
+                        setError(`Server returned non-image data: ${blob.type}`);
+                        setImageUrl('');
+                        return;
+                    }
+                    const objectUrl = URL.createObjectURL(blob);
+                    previousObjectUrlRef.current = objectUrl;
+                    setImageUrl(objectUrl);
+                    setError('');
+
+                } catch (err) {
+                    console.error('Fetch error:', err);
+                    setError(`Network error or server unavailable: ${err.message}`);
+                    setImageUrl('');
+                }
+            }, 300), []); // Dependencies: name, bgColor handled by useEffect calling this
 
             React.useEffect(() => {
                 generateAndSetImageUrl(name, bgColor);
+
+                // Cleanup on unmount
+                return () => {
+                    if (previousObjectUrlRef.current) {
+                        URL.revokeObjectURL(previousObjectUrlRef.current);
+                    }
+                };
             }, [name, bgColor, generateAndSetImageUrl]);
 
             const handleNameChange = (event) => {
@@ -82,56 +145,71 @@
             };
 
             const handleBgColorChange = (event) => {
-                // Store color without leading #, matching initial state and server preference.
                 setBgColor(event.target.value.replace('#', ''));
             };
             
+            // This handler is now for issues if the blob isn't a valid image after a successful fetch
             const handleImageError = () => {
-                setError('Failed to load avatar. Check server or parameters.');
-                // Keep old imageUrl to avoid broken icon if possible, or clear it: setImageUrl('');
+                setError('Failed to display image. The fetched data might not be a valid image format.');
+                // Keep previousObjectUrlRef.current as is, because it's already tried to load.
+                // Setting imageUrl to '' would hide the broken image icon but also the chance to see what went wrong.
             }
 
             return (
                 <div className="container">
-                    <h1>User Avatar Tester</h1>
+                    <h1>User Avatar API Tester</h1>
                     <p className="info">
-                        Ensure your Node.js server is running (typically on the current host and port).
-                        The avatar should update automatically as you type.
+                        Ensure your Node.js server is running. The avatar should update automatically as you type.
                     </p>
-                    <div className="form-group">
-                        <label htmlFor="name">Name (Mandatory):</label>
-                        <input
-                            type="text"
-                            id="name"
-                            value={name}
-                            onChange={handleNameChange}
-                            placeholder="Enter user name"
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="bgColor">Background Color (Optional Hex):</label>
-                        <input
-                            type="text"
-                            id="bgColor"
-                            value={bgColor}
-                            onChange={handleBgColorChange}
-                            placeholder="e.g., FFDBAC or ca8a04"
-                        />
-                         <p className="info">Enter a hex color code (e.g., FFDBAC, #CA8A04). The server will handle the format.</p>
+                    
+                    <div className="parameters-section">
+                        <h2>Parameters</h2>
+                        <div className="form-group">
+                            <label htmlFor="name">Name (Mandatory):</label>
+                            <input
+                                type="text"
+                                id="name"
+                                value={name}
+                                onChange={handleNameChange}
+                                placeholder="Enter user name"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="bgColor">Background Color (Optional Hex):</label>
+                            <input
+                                type="text"
+                                id="bgColor"
+                                value={bgColor} // Display without #
+                                onChange={handleBgColorChange}
+                                placeholder="e.g., FFDBAC or ca8a04"
+                            />
+                             <p className="info">Enter a hex color code (e.g., FFDBAC, #CA8A04). The server handles formats with/without '#'.</p>
+                        </div>
                     </div>
 
-                    <div className="avatar-preview">
+                    {requestUrl && (
+                        <div className="request-url-section">
+                            <h2>Request URL</h2>
+                            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px' }}>
+                                <code>{requestUrl}</code>
+                            </pre>
+                        </div>
+                    )}
+
+                    <div className="response-preview-section">
                         <h2>Avatar Preview</h2>
-                        {imageUrl ? (
-                            <img 
-                                src={imageUrl} 
-                                alt={`Avatar for ${name}`} 
-                                onError={handleImageError} 
-                            />
-                        ) : (
-                            <p>{error || 'Enter a name to see the avatar.'}</p>
-                        )}
-                        {error && <p style={{color: 'red'}}>{error}</p>}
+                        <div className="avatar-preview">
+                            {imageUrl ? (
+                                <img 
+                                    src={imageUrl} 
+                                    alt={`Avatar for ${name}`} 
+                                    onError={handleImageError} 
+                                />
+                            ) : (
+                                <p>{error ? '' : 'Enter a name to see the avatar.'}</p>
+                            )}
+                            {error && <p style={{color: 'red', marginTop: '10px'}}>{error}</p>}
+                        </div>
                     </div>
                 </div>
             );

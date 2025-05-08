@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Avatar Tester</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="color"] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .avatar-preview { margin-top: 20px; text-align: center; }
+        .avatar-preview img { width: 100px; height: 100px; border: 1px solid #ddd; border-radius: 4px; background-color: #eee; }
+        .info { font-size: 0.9em; color: #555; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+    <script type="text/babel">
+        /**
+         * Debounce function to limit the rate at which a function can fire.
+         * @param {Function} func The function to debounce.
+         * @param {number} delay The delay in milliseconds.
+         * @returns {Function} The debounced function.
+         */
+        function debounce(func, delay) {
+            let timeoutId;
+            return function(...args) {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    func.apply(this, args);
+                }, delay);
+            };
+        }
+
+        function App() {
+            /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
+            const [name, setName] = React.useState('Alterya');
+            /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
+            const [bgColor, setBgColor] = React.useState('FFDBAC'); // Store without #
+            /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
+            const [imageUrl, setImageUrl] = React.useState('');
+            /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} */
+            const [error, setError] = React.useState('');
+
+            // Assuming server runs on localhost:3000 based on assignment and server fallback.
+            // Your server's DEFAULT_PORT is taken from process.env.PORT or defaults to 3000.
+            // const SERVER_BASE_URL = 'http://localhost:3000'; // Removed
+
+            const generateAndSetImageUrl = React.useCallback(debounce((currentName, currentBgColor) => {
+                if (!currentName.trim()) {
+                    setImageUrl('');
+                    setError('Name is a mandatory parameter.');
+                    return;
+                }
+                setError('');
+                const params = new URLSearchParams();
+                params.append('name', currentName.trim());
+                
+                // Server handles #, but let's be clean and send without it.
+                const cleanBgColor = currentBgColor.replace('#', '');
+                if (cleanBgColor) {
+                    params.append('backgroundColor', cleanBgColor);
+                }
+                
+                setImageUrl(`/user-avatar?${params.toString()}`); // Changed to relative path
+            }, 300), []); // Removed SERVER_BASE_URL from dependencies
+
+            React.useEffect(() => {
+                generateAndSetImageUrl(name, bgColor);
+            }, [name, bgColor, generateAndSetImageUrl]);
+
+            const handleNameChange = (event) => {
+                setName(event.target.value);
+            };
+
+            const handleBgColorChange = (event) => {
+                // Store color without leading #, matching initial state and server preference.
+                setBgColor(event.target.value.replace('#', ''));
+            };
+            
+            const handleImageError = () => {
+                setError('Failed to load avatar. Check server or parameters.');
+                // Keep old imageUrl to avoid broken icon if possible, or clear it: setImageUrl('');
+            }
+
+            return (
+                <div className="container">
+                    <h1>User Avatar Tester</h1>
+                    <p className="info">
+                        Ensure your Node.js server is running (typically on the current host and port).
+                        The avatar should update automatically as you type.
+                    </p>
+                    <div className="form-group">
+                        <label htmlFor="name">Name (Mandatory):</label>
+                        <input
+                            type="text"
+                            id="name"
+                            value={name}
+                            onChange={handleNameChange}
+                            placeholder="Enter user name"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="bgColor">Background Color (Optional Hex):</label>
+                        <input
+                            type="text"
+                            id="bgColor"
+                            value={bgColor}
+                            onChange={handleBgColorChange}
+                            placeholder="e.g., FFDBAC or ca8a04"
+                        />
+                         <p className="info">Enter a hex color code (e.g., FFDBAC, #CA8A04). The server will handle the format.</p>
+                    </div>
+
+                    <div className="avatar-preview">
+                        <h2>Avatar Preview</h2>
+                        {imageUrl ? (
+                            <img 
+                                src={imageUrl} 
+                                alt={`Avatar for ${name}`} 
+                                onError={handleImageError} 
+                            />
+                        ) : (
+                            <p>{error || 'Enter a name to see the avatar.'}</p>
+                        )}
+                        {error && <p style={{color: 'red'}}>{error}</p>}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html> 

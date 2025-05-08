@@ -17,12 +17,9 @@ const __dirname = path.dirname(__filename);
 // Middleware
 app.use(express.json());
 
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, '..', 'public'))); // Serve files from project_root/public
-
 // Routes
 app.get('/', (_req: Request, res: Response) => {
-    // Send the index.html for the main route
+    // Send the index.html for the main route (UI Demo)
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 

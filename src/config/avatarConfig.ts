@@ -1,0 +1,3 @@
+export const DEFAULT_AVATAR_BACKGROUND_COLOR = 'FFDBAC';
+export const DEFAULT_AVATAR_RADIUS = 50;
+export const DEFAULT_AVATAR_SIZE = 100; 

@@ -15,7 +15,9 @@
   "dependencies": {
     "@dicebear/collection": "^9.0.1",
     "@dicebear/core": "^9.0.1",
-    "express": "^4.19.2"
+    "dotenv": "^16.5.0",
+    "express": "^4.19.2",
+    "express-validator": "^7.2.1"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

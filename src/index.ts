@@ -1,9 +1,12 @@
+import dotenv from 'dotenv';
+dotenv.config(); // Load environment variables from .env file
+
 import express, { Request, Response } from 'express';
-import { createAvatar } from '@dicebear/core';
-import { pixelArt } from '@dicebear/collection';
+import { DEFAULT_PORT } from './config/appConfig.js';
+import avatarRoutes from './routes/avatarRoutes.js';
 
 const app = express();
-const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? DEFAULT_PORT;
 
 // Middleware
 app.use(express.json());
@@ -13,29 +16,7 @@ app.get('/', (_req: Request, res: Response) => {
     res.send({ message: 'Hello from Express + TypeScript!' });
 });
 
-app.get('/user-avatar', (req: Request, res: Response) => {
-    const name = req.query.name as string;
-    const bgColorInput = req.query.backgroundColor as string;
-
-    if (!name) {
-        return res.status(400).send({ error: 'Name is a mandatory query parameter.' });
-    }
-
-    // Default to a light orange if not provided. Ensure no # prefix.
-    const validatedBgColor = bgColorInput ? bgColorInput.replace('#', '') : 'FFDBAC';
-
-    const avatar = createAvatar(pixelArt, {
-        seed: name,
-        backgroundColor: [validatedBgColor],
-        radius: 50, // For a circular avatar
-        size: 100, // 100x100px
-    });
-
-    const svg = avatar.toString();
-
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.send(svg);
-});
+app.use(avatarRoutes); // Mount the avatar routes
 
 // Start server
 app.listen(PORT, () => {

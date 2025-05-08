@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { createAvatar } from '@dicebear/core';
-import { funEmoji } from '@dicebear/collection';
+import { pixelArt } from '@dicebear/collection';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -24,7 +24,7 @@ app.get('/user-avatar', (req: any, res: any) => {
     // Default to a light orange if not provided. Ensure no # prefix.
     const validatedBgColor = bgColorInput ? bgColorInput.replace('#', '') : 'FFDBAC';
 
-    const avatar = createAvatar(funEmoji, {
+    const avatar = createAvatar(pixelArt, {
         seed: name,
         backgroundColor: [validatedBgColor],
         radius: 50, // For a circular avatar
